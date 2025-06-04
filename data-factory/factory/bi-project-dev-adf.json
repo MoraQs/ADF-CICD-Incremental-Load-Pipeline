@@ -1,0 +1,9 @@
+{
+	"name": "bi-project-dev-adf",
+	"location": "westeurope",
+	"identity": {
+		"type": "SystemAssigned",
+		"principalId": "70f76fae-b313-4910-8ea4-ca9437b4a9cf",
+		"tenantId": "9f7cc59c-197f-49ce-b01a-c6b468f0181f"
+	}
+}
