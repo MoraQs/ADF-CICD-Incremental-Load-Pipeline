@@ -15,3 +15,20 @@ stages:
       dataFactoryName: bi-project-dev-adf
       repoRootFolder: /data-factory/
       packageJsonFolder: /devops/
+
+
+- stage: DEV
+  variables:
+  - group: DEV
+  jobs:
+  - template: adf-deploy-job.yml
+    parameters:
+      environmentName: DEV
+      subscriptionId: df6a2f84-eeb3-4959-b0bc-427555b17c5a
+      resourceGroupName: BI_PROJECT_DEV_RG
+      dataFactoryName: bi-project-dev-adf
+      serviceConnectionName: CICD_DEV
+      overrideParameters: >
+        -ADLSgen2_LS_properties_typeProperties_url $(ADLSUrl)
+        -DynamicAzureSqlDB_LS_properties_typeProperties_server $(serverName)
+        -DynamicAzureSqlDB_LS_properties_typeProperties_database $(databaseName)
