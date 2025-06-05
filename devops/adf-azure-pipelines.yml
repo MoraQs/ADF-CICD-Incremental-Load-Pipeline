@@ -32,3 +32,20 @@ stages:
         -ADLSgen2_LS_properties_typeProperties_url $(ADLSUrl)
         -DynamicAzureSqlDB_LS_properties_typeProperties_server $(serverName)
         -DynamicAzureSqlDB_LS_properties_typeProperties_database $(databaseName)
+
+
+- stage: PROD
+  variables:
+  - group: PROD
+  jobs:
+  - template: adf-deploy-job.yml
+    parameters:
+      environmentName: PROD
+      subscriptionId: df6a2f84-eeb3-4959-b0bc-427555b17c5a
+      resourceGroupName: BI_PROJECT_PROD_RG
+      dataFactoryName: bi-project-prod-adf
+      serviceConnectionName: CICD_PROD
+      overrideParameters: >
+        -ADLSgen2_LS_properties_typeProperties_url $(ADLSUrl)
+        -DynamicAzureSqlDB_LS_properties_typeProperties_server $(serverName)
+        -DynamicAzureSqlDB_LS_properties_typeProperties_database $(databaseName)
