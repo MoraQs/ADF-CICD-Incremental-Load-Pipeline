@@ -1,0 +1,10 @@
+{
+	"name": "ADLSgen2_LS",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://biprojectdevsa.dfs.core.windows.net/"
+		}
+	}
+}
