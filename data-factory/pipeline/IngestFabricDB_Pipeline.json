@@ -147,11 +147,11 @@
 		"parameters": {
 			"serverName": {
 				"type": "string",
-				"defaultValue": "dummy-sql-server.database.windows.net"
+				"defaultValue": "FabricServer"
 			},
 			"databaseName": {
 				"type": "string",
-				"defaultValue": "dummy-database-name"
+				"defaultValue": "FabricDB"
 			}
 		},
 		"annotations": []
