@@ -1,0 +1,24 @@
+{
+	"name": "AzureSqlDatabase_LS",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"server": "ttcxzh37dhhetma2y22gr4ayd4-6o4m74iprbeuzbh4avtwleehci.database.fabric.microsoft.com,1433",
+			"database": "FabricDB_Dev-c47ef5b3-00c6-4929-99cf-3a89a34487a6",
+			"encrypt": "mandatory",
+			"trustServerCertificate": false,
+			"authenticationType": "ServicePrincipal",
+			"servicePrincipalId": "d04bd30a-7d52-4eba-a392-09e64283ea9e",
+			"servicePrincipalCredential": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "AzureKeyVault_LS",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "FabricDB-Access-SP"
+			},
+			"tenant": "9f7cc59c-197f-49ce-b01a-c6b468f0181f"
+		}
+	}
+}
