@@ -128,10 +128,6 @@
 											"value": "@pipeline().parameters.databaseName",
 											"type": "Expression"
 										},
-										"datasetName": {
-											"value": "@item().datasetName",
-											"type": "Expression"
-										},
 										"tableName": {
 											"value": "@item().tableName",
 											"type": "Expression"
