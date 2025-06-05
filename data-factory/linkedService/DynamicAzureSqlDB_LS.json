@@ -1,0 +1,32 @@
+{
+	"name": "DynamicAzureSqlDB_LS",
+	"properties": {
+		"parameters": {
+			"serverName": {
+				"type": "string"
+			},
+			"databaseName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"server": "@{linkedService().serverName}",
+			"database": "@{linkedService().databaseName}",
+			"encrypt": "mandatory",
+			"trustServerCertificate": false,
+			"authenticationType": "ServicePrincipal",
+			"servicePrincipalId": "d04bd30a-7d52-4eba-a392-09e64283ea9e",
+			"servicePrincipalCredential": {
+				"type": "AzureKeyVaultSecret",
+				"store": {
+					"referenceName": "AzureKeyVault_LS",
+					"type": "LinkedServiceReference"
+				},
+				"secretName": "FabricDB-Access-SP"
+			},
+			"tenant": "9f7cc59c-197f-49ce-b01a-c6b468f0181f"
+		}
+	}
+}
