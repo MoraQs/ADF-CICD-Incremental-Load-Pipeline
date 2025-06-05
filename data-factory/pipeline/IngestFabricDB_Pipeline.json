@@ -147,11 +147,11 @@
 		"parameters": {
 			"serverName": {
 				"type": "string",
-				"defaultValue": "FabricServer"
+				"defaultValue": "ttcxzh37dhhetma2y22gr4ayd4-6o4m74iprbeuzbh4avtwleehci.database.fabric.microsoft.com,1433"
 			},
 			"databaseName": {
 				"type": "string",
-				"defaultValue": "FabricDB"
+				"defaultValue": "FabricDB_Dev-c47ef5b3-00c6-4929-99cf-3a89a34487a6"
 			}
 		},
 		"annotations": []
