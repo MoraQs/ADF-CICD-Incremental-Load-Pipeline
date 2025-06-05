@@ -1,0 +1,17 @@
+trigger:
+- main
+
+pool:
+  name: Default
+
+stages:
+
+- stage: BUILD
+  jobs:
+  - template: adf-build-job.yml
+    parameters:
+      subscriptionId: df6a2f84-eeb3-4959-b0bc-427555b17c5a
+      resourceGroupName: BI_PROJECT_DEV_RG
+      dataFactoryName: bi-project-dev-adf
+      repoRootFolder: /data-factory/
+      packageJsonFolder: /devops/
