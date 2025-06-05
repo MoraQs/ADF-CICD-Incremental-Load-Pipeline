@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT \n    TABLE_NAME as tableName,\n    TABLE_SCHEMA as schemaName,\n    CASE \n        WHEN TABLE_NAME IN ('orders') THEN 'true'\n        ELSE 'false'\n    END as isIncremental,\nFROM INFORMATION_SCHEMA.TABLES\nWHERE table_schema = 'dbo';",
+						"sqlReaderQuery": "SELECT \n    TABLE_NAME as tableName,\n    TABLE_SCHEMA as schemaName\nFROM INFORMATION_SCHEMA.TABLES\nWHERE table_schema = 'dbo';",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
