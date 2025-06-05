@@ -1,0 +1,47 @@
+{
+	"name": "DynamicADLS_CSV_DS",
+	"properties": {
+		"linkedServiceName": {
+			"referenceName": "ADLSgen2_LS",
+			"type": "LinkedServiceReference"
+		},
+		"parameters": {
+			"serverName": {
+				"type": "string"
+			},
+			"databaseName": {
+				"type": "string"
+			},
+			"datasetName": {
+				"type": "string"
+			},
+			"tableName": {
+				"type": "string"
+			},
+			"schemaName": {
+				"type": "string"
+			}
+		},
+		"annotations": [],
+		"type": "DelimitedText",
+		"typeProperties": {
+			"location": {
+				"type": "AzureBlobFSLocation",
+				"fileName": {
+					"value": "@concat(dataset().serverName, '_',dataset().tableName)",
+					"type": "Expression"
+				},
+				"folderPath": {
+					"value": "@concat(\n    dataset().serverName,\n    '/',\n    dataset().databaseName,\n    '/',\n    dataset().datasetName,\n    '/Year=', formatDateTime(utcNow(), 'yyyy'),\n    '/Month=', formatDateTime(utcNow(), 'MM'),\n    '/Day=', formatDateTime(utcNow(), 'dd')\n)",
+					"type": "Expression"
+				},
+				"fileSystem": "landing"
+			},
+			"columnDelimiter": ",",
+			"escapeChar": "\\",
+			"firstRowAsHeader": true,
+			"quoteChar": "\""
+		},
+		"schema": []
+	}
+}
