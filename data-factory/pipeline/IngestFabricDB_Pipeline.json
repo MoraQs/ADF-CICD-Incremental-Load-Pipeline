@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT \n    TABLE_NAME as tableName,\n    TABLE_SCHEMA as schemaName\nFROM INFORMATION_SCHEMA.TABLES\nWHERE table_schema = 'dbo';",
+						"sqlReaderQuery": "SELECT \n    t.TABLE_NAME AS tableName,\n    t.TABLE_SCHEMA AS schemaName,\n    COALESCE(m.is_incremental, 0) AS isIncremental,\n    COALESCE(m.watermark_column, '') AS watermarkColumn,\n    COALESCE(m.last_loaded, '2000-01-01') AS lastLoadedDate\nFROM INFORMATION_SCHEMA.TABLES t\nLEFT JOIN dbo.ETL_Table_Metadata m\n    ON t.TABLE_NAME = m.table_name\nWHERE t.TABLE_SCHEMA = 'dbo';",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -59,7 +59,20 @@
 						{
 							"name": "Copy data from the iteration to datalake",
 							"type": "Copy",
-							"dependsOn": [],
+							"dependsOn": [
+								{
+									"activity": "Get last watermark",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								},
+								{
+									"activity": "Get new watermark",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
 							"policy": {
 								"timeout": "0.12:00:00",
 								"retry": 0,
@@ -72,7 +85,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@concat('SELECT * FROM ', item().schemaName, '.', item().tableName)",
+										"value": "@{if(\n  equals(item().isIncremental, 1),\n  concat('SELECT * FROM ', item().schemaName, '.', item().tableName,\n         ' WHERE ', item().watermarkColumn, ' > ''',\n         activity('Get last watermark').output.firstRow.last_loaded, ''''),\n  concat('SELECT * FROM ', item().schemaName, '.', item().tableName)\n)}\n",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -139,6 +152,133 @@
 									}
 								}
 							]
+						},
+						{
+							"name": "Get last watermark",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": "SELECT last_loaded \nFROM dbo.ETL_Table_Metadata \nWHERE table_name = '@{item().tableName}'\n",
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "DynamicAzureSQLDB_DS",
+									"type": "DatasetReference",
+									"parameters": {
+										"serverName": {
+											"value": "@pipeline().parameters.serverName",
+											"type": "Expression"
+										},
+										"databaseName": {
+											"value": "@pipeline().parameters.databaseName",
+											"type": "Expression"
+										}
+									}
+								}
+							}
+						},
+						{
+							"name": "Get new watermark",
+							"type": "Lookup",
+							"dependsOn": [],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"source": {
+									"type": "AzureSqlSource",
+									"sqlReaderQuery": {
+										"value": "@if(\n  and(\n    equals(item().isIncremental, 1),\n    not(empty(item().watermarkColumn))\n  ),\n  concat('SELECT MAX(', item().watermarkColumn, ') AS new_watermark FROM ', item().schemaName, '.', item().tableName),\n  'SELECT NULL AS new_watermark'\n)\n\n",
+										"type": "Expression"
+									},
+									"queryTimeout": "02:00:00",
+									"partitionOption": "None"
+								},
+								"dataset": {
+									"referenceName": "DynamicAzureSQLDB_DS",
+									"type": "DatasetReference",
+									"parameters": {
+										"serverName": {
+											"value": "@pipeline().parameters.serverName",
+											"type": "Expression"
+										},
+										"databaseName": {
+											"value": "@pipeline().parameters.databaseName",
+											"type": "Expression"
+										}
+									}
+								},
+								"firstRowOnly": true
+							}
+						},
+						{
+							"name": "Update watermark",
+							"type": "SqlServerStoredProcedure",
+							"dependsOn": [
+								{
+									"activity": "Copy data from the iteration to datalake",
+									"dependencyConditions": [
+										"Succeeded"
+									]
+								}
+							],
+							"policy": {
+								"timeout": "0.12:00:00",
+								"retry": 0,
+								"retryIntervalInSeconds": 30,
+								"secureOutput": false,
+								"secureInput": false
+							},
+							"userProperties": [],
+							"typeProperties": {
+								"storedProcedureName": "[dbo].[usp_UpdateWatermark]",
+								"storedProcedureParameters": {
+									"tableName": {
+										"value": {
+											"value": "@item().tableName",
+											"type": "Expression"
+										},
+										"type": "String"
+									},
+									"newWatermark": {
+										"value": {
+											"value": "@activity('Get new watermark').output.firstRow.new_watermark",
+											"type": "Expression"
+										},
+										"type": "Datetime"
+									}
+								}
+							},
+							"linkedServiceName": {
+								"referenceName": "DynamicAzureSqlDB_LS",
+								"type": "LinkedServiceReference",
+								"parameters": {
+									"serverName": {
+										"value": "@pipeline().parameters.serverName",
+										"type": "Expression"
+									},
+									"databaseName": {
+										"value": "@pipeline().parameters.databaseName",
+										"type": "Expression"
+									}
+								}
+							}
 						}
 					]
 				}
