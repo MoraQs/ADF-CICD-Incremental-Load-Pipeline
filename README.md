@@ -163,5 +163,6 @@ This guarantees:
 
 ## 👨‍💻 Maintainer
 
-**Tunde Morakinyo**  
-BI Developer, Azure Data Platform Architect
+### **Tunde Morakinyo**
+
+### BI Developer, Azure Data Platform Architect
