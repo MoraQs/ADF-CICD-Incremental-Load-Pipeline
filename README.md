@@ -200,7 +200,7 @@ Configure via Azure DevOps under `Repos → Branches → Policies` on `main` bra
 ## 👨‍💻 Author
 
 **Tunde Morakinyo**  
-BI Developer & Azure Data Platform Engineer
+*BI Developer & Azure Data Platform Engineer*
 
 ---
 
