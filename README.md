@@ -1,28 +1,33 @@
 
-# Azure Data Factory CI/CD Pipeline with Power BI Integration
+# Azure Data Factory CI/CD Pipeline with Metadata-Driven Incremental Loads
 
 ## 📘 Overview
 
-This repository implements a robust CI/CD pipeline for deploying Azure Data Factory (ADF) artifacts and Power BI reports/semantic models using Azure DevOps. It supports environment-specific deployments and handles both full and incremental loads, with detailed branch policies and environment segregation.
+This repository demonstrates a robust CI/CD pipeline setup for Azure Data Factory (ADF), leveraging metadata-driven design for full and incremental data loads. It includes environment-based deployment using Azure DevOps and dynamic pipeline configuration that supports both `datetime` and `int` watermarking strategies.
 
 ## 🗂 Project Structure
 
-```.
+```bash
+.
+├── assets/
+│   ├── pipeline_overview.png
+│   ├── foreach_details.png
 ├── data-factory/
 │   ├── pipelines/
+│   ├── factory/
 │   ├── datasets/
 │   └── linkedServices/
 ├── devops/
 │   ├── adf-build-job.yml
 │   ├── adf-deploy-job.yml
-├── .azure-pipelines/
-│   └── azure-pipelines.yml
+├── package.json
+├── azure-pipelines.yml
 └── README.md
 ```
 
 ## 🚀 CI/CD Pipeline Flow
 
-### Triggering Pipeline
+### Triggers
 
 ```yaml
 trigger:
@@ -36,31 +41,29 @@ pr:
       - main
 ```
 
-Only commits to the `main` branch or PRs targeting `main` will trigger the pipeline.
+Only the `main` branch is allowed to trigger deployments. Feature branches (e.g., `feature/*`) do not trigger the pipeline.
 
 ### Stages
 
 #### `BUILD`
 
-- Validates and exports ADF ARM templates
-- Optional: Exports Power BI `.pbip` files if configured
+- Exports ADF ARM templates
 
 #### `DEV`
 
-- Deploys ADF artifacts to the **Development** environment
-- Uses variable group `DEV` for environment-specific parameters
+- Deploys artifacts to **Development** environment
+- Uses pipeline parameters and the `DEV` variable group
 
 #### `PROD`
 
-- Deploys only when changes are merged into `main`
-- Uses variable group `PROD`
-- Includes branch check to prevent accidental non-main deployments:
+- Triggered only when changes are merged into `main`
+- Uses condition:
 
   ```yaml
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   ```
 
-## 🔄 Incremental Load Support
+## 🔁 Metadata-Driven Incremental Loads
 
 ### Metadata Table
 
@@ -73,27 +76,42 @@ CREATE TABLE dbo.ETL_Table_Metadata (
   watermark_type NVARCHAR(20),
   last_loaded_datetime DATETIME,
   last_loaded_integer INT
-)
+);
 ```
 
-Supports both `datetime` and `int` watermarking strategies.
+### Lookup Query (to fetch metadata)
 
-### Copy Activity Logic (Dynamic SQL Query)
+```sql
+SELECT 
+    t.TABLE_NAME AS tableName,
+    t.TABLE_SCHEMA AS schemaName,
+    COALESCE(m.is_incremental, 0) AS isIncremental,
+    COALESCE(m.watermark_column, '') AS watermarkColumn,
+    COALESCE(m.last_loaded_datetime, '2000-01-01') AS lastLoadedDate,
+    COALESCE(m.last_loaded_integer, 0) AS lastLoadedItem,
+    m.watermark_type AS watermarkType
+FROM INFORMATION_SCHEMA.TABLES t
+LEFT JOIN dbo.ETL_Table_Metadata m
+    ON t.TABLE_NAME = m.table_name
+WHERE t.TABLE_SCHEMA = 'dbo' AND t.TABLE_NAME NOT IN ('ETL_Table_Metadata')
+```
+
+### Runtime SQL for Copy Activity
 
 ```expression
 @{if(
-  and(equals(item().isIncremental, 1), not(empty(activity('Get last watermark').output.firstRow.watermark_type))),
+  and(equals(item().isIncremental, 1), not(empty(activity('Get last watermark').output.firstRow.watermarkType))),
   if(
-    equals(activity('Get last watermark').output.firstRow.watermark_type, 'int'),
+    equals(activity('Get last watermark').output.firstRow.watermarkType, 'int'),
     concat(
       'SELECT * FROM ', item().schemaName, '.', item().tableName,
       ' WHERE ', item().watermarkColumn, ' > ',
-      activity('Get last watermark').output.firstRow.last_loaded_int
+      activity('Get last watermark').output.firstRow.last_loaded_integer
     ),
     concat(
       'SELECT * FROM ', item().schemaName, '.', item().tableName,
       ' WHERE ', item().watermarkColumn, ' > ''',
-      activity('Get last watermark').output.firstRow.last_loaded, ''''
+      activity('Get last watermark').output.firstRow.last_loaded_datetime, ''''
     )
   ),
   concat('SELECT * FROM ', item().schemaName, '.', item().tableName)
@@ -112,57 +130,59 @@ BEGIN
     IF @watermarkType = 'datetime'
     BEGIN
         UPDATE dbo.ETL_Table_Metadata
-        SET last_loaded = CONVERT(DATETIME, @newWatermark)
-        WHERE table_name = @tableName
+        SET last_loaded_datetime = CONVERT(DATETIME, @newWatermark)
+        WHERE table_name = @tableName;
     END
     ELSE
     BEGIN
         UPDATE dbo.ETL_Table_Metadata
-        SET last_loaded_int = CONVERT(INT, @newWatermark)
-        WHERE table_name = @tableName
+        SET last_loaded_integer = CONVERT(INT, @newWatermark)
+        WHERE table_name = @tableName;
     END
-END
+END;
 ```
+
+## 📦 Blob Output & File Naming Convention
+
+- Partitioned output folder path:
+
+```expression
+@concat(
+  dataset().serverName, '/',
+  dataset().databaseName, '/',
+  dataset().tableName, '/Year=',
+  formatDateTime(utcNow(), 'yyyy'), '/Month=',
+  formatDateTime(utcNow(), 'MM'), '/Day=',
+  formatDateTime(utcNow(), 'dd'), '/Hour=',
+  formatDateTime(utcNow(), 'HH')
+)
+```
+
+- File name format:
+
+```expression
+@concat(dataset().schemaName, '_',dataset().tableName, '_', formatDateTime(utcNow(), 'yyyyMMddHHmmss'), '.parquet')
+```
+
+## 🧠 Parameterization Strategy
+
+- Pipeline-level parameters feed into dataset parameters
+- Dataset parameters cascade into linked service parameters
+- This enables full dynamic configuration at runtime without hardcoding values
 
 ## 🛡 Branch Protection Strategy
 
-> Enforced via Azure DevOps UI (not YAML)
+Configure via Azure DevOps under `Repos → Branches → Policies` on `main` branch:
 
-1. Navigate to **Repos → Branches → `main` → Branch Policies**
-2. Enable:
-   - Require pull request approval
-   - Prevent direct pushes
-   - Enable build validation
-   - Optional: Reset reviewer votes on changes
+- Require PR approvals
+- Prevent direct pushes
+- Require successful build validation before merging
 
-This guarantees:
+## 👨‍💻 Author
 
-- All deployments to PROD go through `main`
-- Only reviewed and validated code reaches production
+**Tunde Morakinyo**  
+BI Developer & Azure Data Platform Engineer
 
-## 💡 Notes
+---
 
-- All parameters for linked services and datasets are overridden using pipeline-level default values.
-- Folder structure for blob outputs uses timestamped folder partitions:
-
-  ```sql
-  /server/database/table/Year=2025/Month=06/Day=06/Hour=15/
-  ```
-
-- File naming follows convention:
-
-  ```expression
-  schema_table_yyyyMMddHHmmss.parquet
-  ```
-
-## ✨ Future Enhancements
-
-- Extend to handle API-based data ingestion in parallel branches
-- Power BI .pbip deployment via separate YAML pipeline their own folder
-- Add Purview metadata tagging for lineage tracking
-
-## 👨‍💻 Maintainer
-
-### **Tunde Morakinyo**
-
-### BI Developer, Azure Data Platform Architect
+Feel free to fork, clone, or extend this setup in your projects. Contributions welcome!
