@@ -27,7 +27,7 @@ stages:
 
 
 - stage: DEV
-  displayName: 'Deploy to DEV environment'
+  displayName: 'Deploy to DEV env'
   dependsOn: BUILD
   condition: succeeded()
   variables:
@@ -47,7 +47,7 @@ stages:
 
 
 - stage: PROD
-  displayName: 'Deploy to PROD environment'
+  displayName: 'Deploy to PROD env'
   dependsOn: DEV
   condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   variables:
