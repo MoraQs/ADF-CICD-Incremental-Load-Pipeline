@@ -142,6 +142,25 @@ BEGIN
 END;
 ```
 
+## 🖼 Pipeline Design Overview
+
+Below is the visual flow of the metadata-driven pipeline in Azure Data Factory.
+
+### 🔄 Top-Level Flow: Lookup > ForEach
+
+![Pipeline Overview](assets/pipeline_overview.png)
+
+### 🧠 ForEach: Get Watermark, Copy, Update
+
+Inside the ForEach, the pipeline dynamically:
+
+- Retrieves the last watermark
+- Gets the new max watermark
+- Performs conditional data copy
+- Conditionally updates watermark via stored procedure
+
+![ForEach Details](assets/foreach_details.png)
+
 ## 📦 Blob Output & File Naming Convention
 
 - Partitioned output folder path:
