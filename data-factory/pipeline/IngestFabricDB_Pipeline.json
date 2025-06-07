@@ -3,7 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Get a list of tables in the source DB",
+				"name": "Get a list of tables ifrom FabricSQLDB",
 				"type": "Lookup",
 				"dependsOn": [],
 				"policy": {
@@ -43,7 +43,7 @@
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Get a list of tables in the source DB",
+						"activity": "Get a list of tables ifrom FabricSQLDB",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -52,7 +52,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Get a list of tables in the source DB').output.value",
+						"value": "@activity('Get a list of tables ifrom FabricSQLDB').output.value",
 						"type": "Expression"
 					},
 					"activities": [
@@ -78,7 +78,7 @@
 								"retry": 0,
 								"retryIntervalInSeconds": 30,
 								"secureOutput": false,
-								"secureInput": false
+								"secureInput": true
 							},
 							"userProperties": [],
 							"typeProperties": {
