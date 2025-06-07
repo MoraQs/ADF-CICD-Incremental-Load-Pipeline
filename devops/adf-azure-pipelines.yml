@@ -1,5 +1,14 @@
+name: ADF-AzureDevOps-CICD-pipeline-$(Date:yyyyMMdd)$(Rev:.r)
+
 trigger:
-- main
+  branches:
+    include:
+      - main
+
+pr:
+  branches:
+    include:
+      - main
 
 pool:
   name: Default
@@ -18,6 +27,9 @@ stages:
 
 
 - stage: DEV
+  displayName: 'Deploy to DEV environment'
+  dependsOn: BUILD
+  condition: succeeded()
   variables:
   - group: DEV
   jobs:
@@ -35,6 +47,9 @@ stages:
 
 
 - stage: PROD
+  displayName: 'Deploy to PROD environment'
+  dependsOn: DEV
+  condition: condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
   variables:
   - group: PROD
   jobs:
