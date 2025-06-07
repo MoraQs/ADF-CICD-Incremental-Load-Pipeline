@@ -17,7 +17,7 @@
 				"typeProperties": {
 					"source": {
 						"type": "AzureSqlSource",
-						"sqlReaderQuery": "SELECT \n    t.TABLE_NAME AS tableName,\n    t.TABLE_SCHEMA AS schemaName,\n    COALESCE(m.is_incremental, 0) AS isIncremental,\n    COALESCE(m.watermark_column, '') AS watermarkColumn,\n    COALESCE(m.last_loaded, '2000-01-01') AS lastLoadedDate\nFROM INFORMATION_SCHEMA.TABLES t\nLEFT JOIN dbo.ETL_Table_Metadata m\n    ON t.TABLE_NAME = m.table_name\nWHERE t.TABLE_SCHEMA = 'dbo';",
+						"sqlReaderQuery": "SELECT \n    t.TABLE_NAME AS tableName,\n    t.TABLE_SCHEMA AS schemaName,\n    COALESCE(m.is_incremental, 0) AS isIncremental,\n    COALESCE(m.watermark_column, '') AS watermarkColumn,\n    COALESCE(m.last_loaded, '2000-01-01') AS lastLoadedDate,\n\tCOALESCE(m.last_loaded_int, 0) AS lastLoadedItem,\n\tm.watermark_type AS watermarkType\nFROM INFORMATION_SCHEMA.TABLES t\nLEFT JOIN dbo.ETL_Table_Metadata m\n    ON t.TABLE_NAME = m.table_name\nWHERE t.TABLE_SCHEMA = 'dbo' and t.TABLE_NAME NOT IN ('ETL_TABLE_Metadata');",
 						"queryTimeout": "02:00:00",
 						"partitionOption": "None"
 					},
@@ -85,7 +85,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@{if(\n  equals(item().isIncremental, 1),\n  concat('SELECT * FROM ', item().schemaName, '.', item().tableName,\n         ' WHERE ', item().watermarkColumn, ' > ''',\n         activity('Get last watermark').output.firstRow.last_loaded, ''''),\n  concat('SELECT * FROM ', item().schemaName, '.', item().tableName)\n)}\n",
+										"value": "@{if(\n  and(equals(item().isIncremental, 1), not(empty(activity('Get last watermark').output.firstRow.watermarkType))),\n  if(\n    equals(activity('Get last watermark').output.firstRow.watermarkType, 'int'),\n    concat(\n      'SELECT * FROM ', item().schemaName, '.', item().tableName,\n      ' WHERE ', item().watermarkColumn, ' > ',\n      activity('Get last watermark').output.firstRow.last_loaded_int\n    ),\n    concat(\n      'SELECT * FROM ', item().schemaName, '.', item().tableName,\n      ' WHERE ', item().watermarkColumn, ' > ''',\n      activity('Get last watermark').output.firstRow.last_loaded, ''''\n    )\n  ),\n  concat('SELECT * FROM ', item().schemaName, '.', item().tableName)\n)}\n",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -168,7 +168,10 @@
 							"typeProperties": {
 								"source": {
 									"type": "AzureSqlSource",
-									"sqlReaderQuery": "SELECT last_loaded \nFROM dbo.ETL_Table_Metadata \nWHERE table_name = '@{item().tableName}'\n",
+									"sqlReaderQuery": {
+										"value": "SELECT \n    last_loaded, \n    last_loaded_int,\n    watermark_column,\n    CASE \n        WHEN table_name = 'order_items' THEN 'int'\n        WHEN table_name = 'orders' THEN 'datetime'\n        ELSE NULL\n    END AS watermarkType\nFROM dbo.ETL_Table_Metadata \nWHERE table_name = '@{item().tableName}'\n",
+										"type": "Expression"
+									},
 									"queryTimeout": "02:00:00",
 									"partitionOption": "None"
 								},
@@ -228,8 +231,8 @@
 							}
 						},
 						{
-							"name": "Update watermark",
-							"type": "SqlServerStoredProcedure",
+							"name": "Update watermark data type dynamically",
+							"type": "IfCondition",
 							"dependsOn": [
 								{
 									"activity": "Copy data from the iteration to datalake",
@@ -238,46 +241,113 @@
 									]
 								}
 							],
-							"policy": {
-								"timeout": "0.12:00:00",
-								"retry": 0,
-								"retryIntervalInSeconds": 30,
-								"secureOutput": false,
-								"secureInput": false
-							},
 							"userProperties": [],
 							"typeProperties": {
-								"storedProcedureName": "[dbo].[usp_UpdateWatermark]",
-								"storedProcedureParameters": {
-									"tableName": {
-										"value": {
-											"value": "@item().tableName",
-											"type": "Expression"
+								"expression": {
+									"value": "@equals(item().watermarkType, 'int')",
+									"type": "Expression"
+								},
+								"ifFalseActivities": [
+									{
+										"name": "Update watermark Datetime",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
 										},
-										"type": "String"
-									},
-									"newWatermark": {
-										"value": {
-											"value": "@activity('Get new watermark').output.firstRow.new_watermark",
-											"type": "Expression"
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].[usp_UpdateWatermark]",
+											"storedProcedureParameters": {
+												"tableName": {
+													"value": "@item().tableName",
+													"type": "String"
+												},
+												"newWatermark": {
+													"value": {
+														"value": "@activity('Get new watermark').output.firstRow.new_watermark",
+														"type": "Expression"
+													},
+													"type": "Datetime"
+												},
+												"watermarkType": {
+													"value": "datetime",
+													"type": "String"
+												}
+											}
 										},
-										"type": "Datetime"
+										"linkedServiceName": {
+											"referenceName": "DynamicAzureSqlDB_LS",
+											"type": "LinkedServiceReference",
+											"parameters": {
+												"serverName": {
+													"value": "@pipeline().parameters.serverName",
+													"type": "Expression"
+												},
+												"databaseName": {
+													"value": "@pipeline().parameters.databaseName",
+													"type": "Expression"
+												}
+											}
+										}
 									}
-								}
-							},
-							"linkedServiceName": {
-								"referenceName": "DynamicAzureSqlDB_LS",
-								"type": "LinkedServiceReference",
-								"parameters": {
-									"serverName": {
-										"value": "@pipeline().parameters.serverName",
-										"type": "Expression"
-									},
-									"databaseName": {
-										"value": "@pipeline().parameters.databaseName",
-										"type": "Expression"
+								],
+								"ifTrueActivities": [
+									{
+										"name": "Update Watermark Int",
+										"type": "SqlServerStoredProcedure",
+										"dependsOn": [],
+										"policy": {
+											"timeout": "0.12:00:00",
+											"retry": 0,
+											"retryIntervalInSeconds": 30,
+											"secureOutput": false,
+											"secureInput": false
+										},
+										"userProperties": [],
+										"typeProperties": {
+											"storedProcedureName": "[dbo].[usp_UpdateWatermark]",
+											"storedProcedureParameters": {
+												"tableName": {
+													"value": {
+														"value": "@item().tableName",
+														"type": "Expression"
+													},
+													"type": "String"
+												},
+												"newWatermark": {
+													"value": {
+														"value": "@activity('Get new watermark').output.firstRow.new_watermark",
+														"type": "Expression"
+													},
+													"type": "Int64"
+												},
+												"watermarkType": {
+													"value": "int",
+													"type": "String"
+												}
+											}
+										},
+										"linkedServiceName": {
+											"referenceName": "DynamicAzureSqlDB_LS",
+											"type": "LinkedServiceReference",
+											"parameters": {
+												"serverName": {
+													"value": "@pipeline().parameters.serverName",
+													"type": "Expression"
+												},
+												"databaseName": {
+													"value": "@pipeline().parameters.databaseName",
+													"type": "Expression"
+												}
+											}
+										}
 									}
-								}
+								]
 							}
 						}
 					]
