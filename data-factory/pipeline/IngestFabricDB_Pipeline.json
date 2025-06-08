@@ -3,7 +3,7 @@
 	"properties": {
 		"activities": [
 			{
-				"name": "Get a list of tables ifrom FabricSQLDB",
+				"name": "Get a list of tables from FabricSQLDB",
 				"type": "Lookup",
 				"dependsOn": [],
 				"policy": {
@@ -39,11 +39,11 @@
 				}
 			},
 			{
-				"name": "Iterate throught the list of tables ingested",
+				"name": "Iterate through the list of looked up tables",
 				"type": "ForEach",
 				"dependsOn": [
 					{
-						"activity": "Get a list of tables ifrom FabricSQLDB",
+						"activity": "Get a list of tables from FabricSQLDB",
 						"dependencyConditions": [
 							"Succeeded"
 						]
@@ -52,7 +52,7 @@
 				"userProperties": [],
 				"typeProperties": {
 					"items": {
-						"value": "@activity('Get a list of tables ifrom FabricSQLDB').output.value",
+						"value": "@activity('Get a list of tables from FabricSQLDB').output.value",
 						"type": "Expression"
 					},
 					"activities": [
@@ -85,7 +85,7 @@
 								"source": {
 									"type": "AzureSqlSource",
 									"sqlReaderQuery": {
-										"value": "@{if(\n  and(equals(item().isIncremental, 1), not(empty(activity('Get last watermark').output.firstRow.watermarkType))),\n  if(\n    equals(activity('Get last watermark').output.firstRow.watermarkType, 'int'),\n    concat(\n      'SELECT * FROM ', item().schemaName, '.', item().tableName,\n      ' WHERE ', item().watermarkColumn, ' > ',\n      activity('Get last watermark').output.firstRow.last_loaded_int\n    ),\n    concat(\n      'SELECT * FROM ', item().schemaName, '.', item().tableName,\n      ' WHERE ', item().watermarkColumn, ' > ''',\n      activity('Get last watermark').output.firstRow.last_loaded, ''''\n    )\n  ),\n  concat('SELECT * FROM ', item().schemaName, '.', item().tableName)\n)}\n",
+										"value": "@{if(\n  and(\n    equals(item().isIncremental, 1),\n    not(empty(activity('Get last watermark').output.firstRow.watermarkType))\n  ),\n  if(\n    equals(activity('Get last watermark').output.firstRow.watermarkType, 'int'),\n    concat(\n      'SELECT * FROM ', item().schemaName, '.', item().tableName,\n      ' WHERE ', item().watermarkColumn, ' > ',\n      activity('Get last watermark').output.firstRow.last_loaded_int\n    ),\n    concat(\n      'SELECT * FROM ', item().schemaName, '.', item().tableName,\n      ' WHERE ', item().watermarkColumn, ' > ''',\n      activity('Get last watermark').output.firstRow.last_loaded, ''''\n    )\n  ),\n  concat('SELECT * FROM ', item().schemaName, '.', item().tableName)\n)}\n",
 										"type": "Expression"
 									},
 									"queryTimeout": "02:00:00",
@@ -264,7 +264,10 @@
 											"storedProcedureName": "[dbo].[usp_UpdateWatermark]",
 											"storedProcedureParameters": {
 												"tableName": {
-													"value": "@item().tableName",
+													"value": {
+														"value": "@item().tableName",
+														"type": "Expression"
+													},
 													"type": "String"
 												},
 												"newWatermark": {
