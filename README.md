@@ -169,11 +169,10 @@ Inside the ForEach, the pipeline dynamically:
 @concat(
   dataset().serverName, '/',
   dataset().databaseName, '/',
-  dataset().tableName, '/Year=',
-  formatDateTime(utcNow(), 'yyyy'), '/Month=',
-  formatDateTime(utcNow(), 'MM'), '/Day=',
-  formatDateTime(utcNow(), 'dd'), '/Hour=',
-  formatDateTime(utcNow(), 'HH')
+  dataset().tableName,
+  '/Year=', formatDateTime(utcNow(), 'yyyy'),
+  '/Month=', formatDateTime(utcNow(), 'MM'),
+  '/Day=', formatDateTime(utcNow(), 'dd')
 )
 ```
 
